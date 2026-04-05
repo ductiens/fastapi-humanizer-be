@@ -98,8 +98,48 @@ async def humanize_text_chunk(chunk: str, style: str, intensity: str, language: 
     return await call_gemini_safe(prompt)
 
 def apply_multipass_imperfections(text: str) -> str:
-    text = text.replace("Tuy nhiên,", "Mặc dù vậy,")
-    text = text.replace("bởi vì", "do")
+    """Post-process to scrub remaining AI fingerprints that the LLM missed."""
+    import random
+    
+    # Phase 1: Replace AI-signature phrases with human alternatives
+    replacements = [
+        ("Tuy nhiên,", random.choice(["Nhưng mà,", "Dù vậy,", "Mặc dù thế,"])),
+        ("bởi vì", random.choice(["do", "tại vì", "vì"])),
+        ("không chỉ", random.choice(["chẳng riêng", "đâu chỉ"])),
+        ("mà còn", random.choice(["mà thậm chí", "lại còn"])),
+        ("đóng vai trò quan trọng", random.choice(["khá quan trọng", "có ảnh hưởng lớn"])),
+        ("sự phát triển", random.choice(["bước tiến", "đà phát triển", "việc phát triển"])),
+        ("nhằm mục đích", random.choice(["để", "cho mục tiêu"])),
+        ("góp phần không nhỏ", random.choice(["giúp ích nhiều", "đóng góp đáng kể"])),
+        ("hơn thế nữa", random.choice(["Với lại", "Thêm nữa"])),
+        ("xét cho cùng", random.choice(["Nói đi nói lại", "Cuối cùng thì"])),
+        ("nói cách khác", random.choice(["Hiểu đơn giản thì", "Tức là"])),
+        ("chuyển mình mạnh mẽ", random.choice(["thay đổi rõ rệt", "đổi khác nhiều"])),
+        ("ngày càng phát triển", random.choice(["đang lên", "tiến bộ nhanh"])),
+        ("trên hết", random.choice(["Quan trọng hơn", "Điều đáng nói"])),
+        ("Trong bối cảnh", random.choice(["Thời điểm", "Lúc", "Ở giai đoạn"])),
+        ("Có thể nói rằng", ""),
+        ("một cách hiệu quả", random.choice(["hiệu quả", "tốt hơn"])),
+        ("đáng kể", random.choice(["rõ rệt", "nhiều"])),
+        ("vượt bậc", random.choice(["vượt trội", "nổi bật"])),
+        ("Tóm lại,", random.choice(["Nói chung,", "Túm lại,", "Vậy đó,"])),
+        ("Nhìn chung,", random.choice(["Nói chung thì,", "Nhìn qua thì,"])),
+    ]
+    
+    for old, new in replacements:
+        text = text.replace(old, new)
+    
+    # Phase 2: Break up overly uniform sentence endings
+    # If text ends with a predictable pattern, add slight variation
+    sentences = text.split('. ')
+    if len(sentences) > 3:
+        # Occasionally merge two short consecutive sentences with a dash or semicolon
+        idx = random.randint(1, max(1, len(sentences) - 2))
+        if len(sentences[idx]) < 60 and len(sentences[idx-1]) < 60:
+            sentences[idx-1] = sentences[idx-1] + " — " + sentences[idx].lstrip()
+            sentences.pop(idx)
+        text = '. '.join(sentences)
+    
     return text
 
 async def humanize_full_text(text: str, style: str, intensity: str, language: str, simulate_student: bool = False) -> str:
@@ -108,8 +148,8 @@ async def humanize_full_text(text: str, style: str, intensity: str, language: st
     results = []
     for i, c in enumerate(chunks):
         res = await humanize_text_chunk(c, style, intensity, language, simulate_student)
-        if simulate_student:
-            res = apply_multipass_imperfections(res)
+        # Always run post-processing to scrub AI fingerprints
+        res = apply_multipass_imperfections(res)
         results.append(res)
         # 5s gap between chunks — stays well under 15 RPM
         if i < len(chunks) - 1:
