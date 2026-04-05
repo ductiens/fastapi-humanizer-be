@@ -68,6 +68,7 @@ async def humanize_stream_endpoint(request: HumanizeTextRequest, req: Request):
             
             try:
                 # Wrap DB operation in timeout or try-except to prevent hanging the entire stream if DB is down
+                print(f"Attempting to save history for user: {username} in collection: {settings.MONGODB_COLLECTION_HISTORY}")
                 record = {
                     "username": username,
                     "original_text": request.text,
@@ -77,15 +78,16 @@ async def humanize_stream_endpoint(request: HumanizeTextRequest, req: Request):
                     "language": request.language,
                     "created_at": datetime.now(timezone.utc)
                 }
-                history_id = await asyncio.wait_for(save_history_record(record), timeout=5.0)
+                history_id = await asyncio.wait_for(save_history_record(record), timeout=7.0)
+                print(f"Successfully saved history. ID: {history_id}")
             except Exception as db_err:
-                print(f"Database error while saving history: {db_err}")
+                print(f"CRITICAL DATABASE ERROR: {db_err}")
                 # We still continue so the user gets their result
             
             # Send final response
             yield f"data: {json.dumps({'type': 'complete', 'humanized_text': full_humanized, 'history_id': history_id})}\n\n"
         except Exception as e:
-            print(f"Stream error: {e}")
+            print(f"CRITICAL STREAM ERROR: {e}")
             yield f"data: {json.dumps({'type': 'error', 'detail': str(e)})}\n\n"
             
     return StreamingResponse(
