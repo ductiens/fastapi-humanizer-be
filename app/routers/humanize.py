@@ -80,7 +80,15 @@ async def humanize_stream_endpoint(request: HumanizeTextRequest, req: Request):
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'detail': str(e)})}\n\n"
             
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(), 
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 @router.post("/parse-file")
 async def parse_file_endpoint(file: UploadFile = File(...)):
     try:
