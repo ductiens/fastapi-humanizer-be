@@ -82,7 +82,7 @@ async def humanize_stream_endpoint(request: HumanizeTextRequest, req: Request):
                     "language": request.language,
                     "created_at": datetime.now(timezone.utc)
                 }
-                history_id = await asyncio.wait_for(save_history_record(record), timeout=7.0)
+                history_id = await asyncio.wait_for(save_history_record(record), timeout=15.0)
                 print(f"Successfully saved history. ID: {history_id}")
             except Exception as db_err:
                 print(f"CRITICAL DATABASE ERROR: {db_err}")
@@ -146,3 +146,19 @@ async def export_history_docx(history_id: str):
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f"attachment; filename=humanized_{history_id}.docx"}
     )
+
+@router.get("/test-db")
+async def test_db_connection():
+    try:
+        from app.db.client import db
+        from app.core.config import settings
+        await db.client.admin.command('ping')
+        return {
+            "status": "success", 
+            "message": "MongoDB connected successfully!",
+            "db_name": settings.MONGODB_DB_NAME,
+            "uri_configured": bool(settings.MONGODB_URI)
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e), "type": type(e).__name__}
+
