@@ -48,6 +48,8 @@ async def humanize_text_endpoint(request: HumanizeTextRequest):
 async def humanize_stream_endpoint(request: HumanizeTextRequest, req: Request):
     username = get_current_user_optional(req)
     async def event_generator():
+        # Send initial padding to bypass proxy buffering (Render/Cloudflare/etc)
+        yield f": { ' ' * 2048 }\n\n"
         try:
             chunks = chunk_text(request.text, max_chunk_size=6000)
             humanized_chunks = []
@@ -61,23 +63,29 @@ async def humanize_stream_endpoint(request: HumanizeTextRequest, req: Request):
                 
                 # Yield partial string to UI if wanted, or just progress
                 yield f"data: {json.dumps({'type': 'chunk', 'text': res})}\n\n"
-                await asyncio.sleep(2)
-                
             full_humanized = "\n\n".join(humanized_chunks)
-            record = {
-                "username": username,
-                "original_text": request.text,
-                "humanized_text": full_humanized,
-                "style": request.style,
-                "intensity_level": request.intensity_level,
-                "language": request.language,
-                "created_at": datetime.now(timezone.utc)
-            }
-            history_id = await save_history_record(record)
+            history_id = None
+            
+            try:
+                # Wrap DB operation in timeout or try-except to prevent hanging the entire stream if DB is down
+                record = {
+                    "username": username,
+                    "original_text": request.text,
+                    "humanized_text": full_humanized,
+                    "style": request.style,
+                    "intensity_level": request.intensity_level,
+                    "language": request.language,
+                    "created_at": datetime.now(timezone.utc)
+                }
+                history_id = await asyncio.wait_for(save_history_record(record), timeout=5.0)
+            except Exception as db_err:
+                print(f"Database error while saving history: {db_err}")
+                # We still continue so the user gets their result
             
             # Send final response
             yield f"data: {json.dumps({'type': 'complete', 'humanized_text': full_humanized, 'history_id': history_id})}\n\n"
         except Exception as e:
+            print(f"Stream error: {e}")
             yield f"data: {json.dumps({'type': 'error', 'detail': str(e)})}\n\n"
             
     return StreamingResponse(

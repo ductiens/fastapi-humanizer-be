@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     MONGODB_DB_NAME: str = "ai_humanizer"
     GEMINI_API_KEY: str = "your_api_key_here"
     CORS_ORIGINS: list[str] = ["*"]
+    MONGODB_COLLECTION_HISTORY: str = "history"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding='utf-8', extra='ignore')
 
