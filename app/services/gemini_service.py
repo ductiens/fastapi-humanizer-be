@@ -75,10 +75,9 @@ async def call_gemini_safe(prompt: str) -> str:
                 logger.error(f"Model {model_name} → unexpected error: {e}")
                 last_error = e
 
-    raise Exception(
-        "Gemini API rate limit reached across all models. "
-        "Please wait a few minutes and try again."
-    )
+    if last_error:
+        raise Exception(f"All models failed. Last error: {str(last_error)}")
+    raise Exception("Model fallback chain failed without a specific error.")
 
 async def humanize_text_chunk(chunk: str, style: str, intensity: str, language: str, simulate_student: bool = False) -> str:
     student_directive = ""
