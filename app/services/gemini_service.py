@@ -13,9 +13,10 @@ genai.configure(api_key=settings.GEMINI_API_KEY)
 # Free tier stable models (as of 2026). Ordered by preference.
 # gemini-2.5-flash = preview, 403 on free/VN. gemini-1.5-* = deprecated 404.
 MODEL_FALLBACK_CHAIN = [
+    "gemini-2.5-flash",
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
-    "gemini-1.5-flash-8b",   # smallest/cheapest, highest RPM on free tier (1000 RPD, 15 RPM)
+    "gemini-1.5-flash",
 ]
 
 # Semaphore OUTSIDE retry — so retry releases the slot between attempts
