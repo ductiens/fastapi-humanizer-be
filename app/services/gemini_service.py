@@ -32,14 +32,25 @@ def chunk_text(text: str, max_chunk_size: int = 1500) -> list[str]:
     return chunks
 
 @retry(
-    wait=wait_exponential(multiplier=1, min=2, max=10),
-    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=1, min=5, max=30),
+    stop=stop_after_attempt(4),
     retry=retry_if_exception_type(ResourceExhausted)
 )
 async def call_gemini_with_retry(prompt: str) -> str:
+    response = await model.generate_content_async(prompt)
+    return response.text
+
+async def call_gemini_safe(prompt: str) -> str:
+    """Wrapper that converts RetryError/ResourceExhausted into clean exceptions."""
+    from tenacity import RetryError
     try:
-        response = await model.generate_content_async(prompt)
-        return response.text
+        return await call_gemini_with_retry(prompt)
+    except RetryError as e:
+        logger.error(f"Gemini rate limit exhausted after retries: {e}")
+        raise Exception("Gemini API rate limit reached. Please wait a few minutes and try again.")
+    except ResourceExhausted as e:
+        logger.error(f"Gemini ResourceExhausted: {e}")
+        raise Exception("Gemini API quota exceeded. Please try again later.")
     except Exception as e:
         logger.error(f"Error calling Gemini API: {e}")
         raise e
@@ -56,7 +67,7 @@ async def humanize_text_chunk(chunk: str, style: str, intensity: str, language: 
         student_directive=student_directive,
         text=chunk
     )
-    result = await call_gemini_with_retry(prompt)
+    result = await call_gemini_safe(prompt)
     return result
 
 def apply_multipass_imperfections(text: str) -> str:
