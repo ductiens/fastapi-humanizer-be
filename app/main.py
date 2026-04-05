@@ -7,7 +7,7 @@ app = FastAPI(title="AI Humanizer Engine")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # NOTE: Restrict this in production!
+    allow_origins=settings.CORS_ORIGINS, 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
