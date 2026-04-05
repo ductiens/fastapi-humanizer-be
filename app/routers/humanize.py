@@ -6,6 +6,7 @@ from app.services.gemini_service import humanize_full_text, chunk_text, humanize
 from app.services.file_service import extract_text_from_pdf, extract_text_from_docx, create_docx_from_text
 from app.db.repository import save_history_record, get_history_records, get_history_by_id
 from app.services.auth_service import get_current_user, get_current_user_optional
+from app.core.config import settings
 from fastapi import Request
 from datetime import datetime, timezone
 import json
@@ -86,6 +87,9 @@ async def humanize_stream_endpoint(request: HumanizeTextRequest, req: Request):
                 print(f"Successfully saved history. ID: {history_id}")
             except Exception as db_err:
                 print(f"CRITICAL DATABASE ERROR: {db_err}")
+                with open("db_error.log", "w") as f:
+                    import traceback
+                    f.write(traceback.format_exc())
                 # We still continue so the user gets their result
             
             # Send final response
