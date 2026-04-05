@@ -49,7 +49,8 @@ async def humanize_stream_endpoint(request: HumanizeTextRequest, req: Request):
     username = get_current_user_optional(req)
     async def event_generator():
         # Send initial padding to bypass proxy buffering (Render/Cloudflare/etc)
-        yield f": { ' ' * 2048 }\n\n"
+        # 4096 bytes is safer than 2048 for most proxies
+        yield f": { ' ' * 4096 }\n\n"
         try:
             chunks = chunk_text(request.text, max_chunk_size=6000)
             humanized_chunks = []
@@ -63,6 +64,9 @@ async def humanize_stream_endpoint(request: HumanizeTextRequest, req: Request):
                 
                 # Yield partial string to UI if wanted, or just progress
                 yield f"data: {json.dumps({'type': 'chunk', 'text': res})}\n\n"
+                
+                # Keepalive comment between chunks to prevent proxy timeout
+                yield ": keepalive\n\n"
             full_humanized = "\n\n".join(humanized_chunks)
             history_id = None
             
@@ -94,9 +98,11 @@ async def humanize_stream_endpoint(request: HumanizeTextRequest, req: Request):
         event_generator(), 
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-cache, no-transform",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"
+            "X-Accel-Buffering": "no",       # Nginx/Render proxy: disable buffering
+            "X-Content-Type-Options": "nosniff",
+            "Transfer-Encoding": "chunked",
         }
     )
 @router.post("/parse-file")

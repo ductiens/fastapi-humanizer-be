@@ -6,21 +6,28 @@ from app.db.client import connect_to_mongo, close_mongo_connection
 
 app = FastAPI(title="AI Humanizer Engine")
 
-# Explicitly define origins for production to avoid issues with allow_credentials=True
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "https://react-humanizer-fe.vercel.app",
-    "*" # Keep * for now but explicit ones help with credentials
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS if settings.CORS_ORIGINS != ["*"] else ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# allow_credentials=True is INCOMPATIBLE with allow_origins=["*"] per CORS spec.
+# Browsers (especially in production) will block such requests.
+# Use explicit origins OR disable credentials requirement.
+cors_origins = settings.CORS_ORIGINS
+if cors_origins == ["*"]:
+    # Wildcard: disable credentials to stay spec-compliant
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    # Explicit origins: credentials are safe
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 @app.on_event("startup")
 async def startup_db_client():
