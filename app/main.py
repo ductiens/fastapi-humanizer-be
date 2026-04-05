@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import humanize, analysis, auth
+from app.core.config import settings
 from app.db.client import connect_to_mongo, close_mongo_connection
 
 app = FastAPI(title="AI Humanizer Engine")
